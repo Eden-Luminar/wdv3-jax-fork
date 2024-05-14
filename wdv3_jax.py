@@ -302,7 +302,7 @@ class ScriptOptions:
     char_threshold: float = field(default=0.75)
 
 
-def main_(opts: ScriptOptions, recursive: bool=False):
+def main(opts: ScriptOptions, recursive: bool=False):
     repo_id = MODEL_REPO_MAP.get(opts.model)
     image_dirs = Path(opts.image_dir).resolve()
     if not image_dirs.is_dir():
