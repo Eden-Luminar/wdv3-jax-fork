@@ -290,7 +290,7 @@ def process_directory(image_dir, labels, model, target_size, opts, recursive):
             print(f"Caption of image {i}: {file_path} :")
             print(f"Caption of image {i}: {filename}: {taglist}")
             write_file(file_path.split(".")[0] + ".txt", taglist)
-            print("-------- end of image {i} --------")
+            print(f"-------- end of image {i} --------")
             
 
 @dataclass
@@ -313,7 +313,7 @@ def main_(opts: ScriptOptions, recursive: bool=False):
     print("Loading tag list...")
     labels: LabelData = load_labels_hf(repo_id=repo_id)
 
-    process_directory(image_dir, labels, model, target_size, opts, recursive)
+    process_directory(image_dirs, labels, model, target_size, opts, recursive)
     
     print("Done!")
 
