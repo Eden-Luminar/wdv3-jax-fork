@@ -1,3 +1,6 @@
+#reuire for venv
+!sudo apt install python3.10-venv
+
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -8,7 +11,7 @@ cd "${script_dir}"
 # make venv if not exist
 if [[ ! -d .venv ]]; then
     echo "Creating virtual environment..."
-    python3.11 -m venv .venv
+    python3.10 -m venv .venv
 fi
 
 # activate the venv
