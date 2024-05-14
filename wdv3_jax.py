@@ -198,20 +198,114 @@ def get_tags(
 
     return caption, taglist, rating_labels, char_labels, gen_labels
 
+#modified version of get_tag() with type default is taglist of get_tag, removing replace("(", "\(").replace(")", "\)")
+def get_caption(
+    probs: Any,
+    labels: LabelData,
+    gen_threshold: float,
+    char_threshold: float,
+):
+    # Convert indices+probs to labels
+    probs = list(zip(labels.names, probs))
+
+    # First 4 labels are actually ratings
+    #rating_labels = dict([probs[i] for i in labels.rating])
+
+    # General labels, pick any where prediction confidence > threshold
+    gen_labels = [probs[i] for i in labels.general]
+    gen_labels = dict([x for x in gen_labels if x[1] > gen_threshold])
+    gen_labels = dict(
+        sorted(
+            gen_labels.items(),
+            key=lambda item: item[1],
+            reverse=True,
+        )
+    )
+
+    # Character labels, pick any where prediction confidence > threshold
+    char_labels = [probs[i] for i in labels.character]
+    char_labels = dict([x for x in char_labels if x[1] > char_threshold])
+    char_labels = dict(
+        sorted(
+            char_labels.items(),
+            key=lambda item: item[1],
+            reverse=True,
+        )
+    )
+
+    # Combine general and character labels, sort by confidence
+    combined_names = [x for x in gen_labels]
+    combined_names.extend([x for x in char_labels])
+
+    # Convert to a string suitable for use as a training caption
+    caption = ", ".join(combined_names)
+    taglist = caption.replace("_", " ")
+
+    return taglist
+
+
+def read_file(filename):
+    with open(filename, "r") as f:
+        contents = f.read()
+    return contents
+
+def write_file(filename, contents):
+    with open(filename, "w") as f:
+        f.write(contents)
+        f.close()
+
+def process_directory(image_dir, labels, model, target_size, opts, recursive):
+    i=0
+    for filename in os.listdir(image_dir):
+        file_path = os.path.join(image_dir, filename)
+        
+        if os.path.isdir(file_path) and recursive:
+            process_directory(file_path, labels, model, target_size, opts, recursive)
+        elif filename.endswith((".png", ".jpg", ".jpeg", ".webp", ".bmp")):
+            i=i+1
+            # get image
+            img_input: Image.Image = Image.open(file_path)
+            # ensure image is RGB
+            img_input = pil_ensure_rgb(img_input)
+            # pad to square with white background
+            img_input = pil_pad_square(img_input)
+            img_input = pil_resize(img_input, target_size)
+            # convert to numpy array and add batch dimension
+            inputs = np.array(img_input)
+            inputs = np.expand_dims(inputs, axis=0)
+            # NHWC image RGB to BGR
+            inputs = inputs[..., ::-1]
+
+            
+            #print("Running inference...")
+            outputs = model.predict(inputs)
+
+            #print("Processing results...")
+            taglist = get_caption(
+            probs=outputs,
+            labels=labels,
+            gen_threshold=opts.gen_threshold,
+            char_threshold=opts.char_threshold,
+            )
+            print(f"Caption of image {i}: {file_path} :")
+            print(f"Caption of image {i}: {filename}: {taglist}")
+            write_file(file_path.split(".")[0] + ".txt", taglist)
+            print("-------- end of image {i} --------")
+            
 
 @dataclass
 class ScriptOptions:
-    image_file: Path = field(positional=True)
+    image_dir: Path = field(positional=True)
     model: str = field(default="vit")
     gen_threshold: float = field(default=0.35)
     char_threshold: float = field(default=0.75)
 
 
-def main(opts: ScriptOptions):
+def main_(opts: ScriptOptions, recursive: bool=False):
     repo_id = MODEL_REPO_MAP.get(opts.model)
-    image_path = Path(opts.image_file).resolve()
-    if not image_path.is_file():
-        raise FileNotFoundError(f"Image file not found: {image_path}")
+    image_dirs = Path(opts.image_dir).resolve()
+    if not image_dirs.is_dir():
+        raise FileNotFoundError(f"Image directory not found or it is not directory: {image_dirs}")
 
     print(f"Loading model '{opts.model}' from '{repo_id}'...")
     model, target_size = load_model_hf(repo_id=repo_id)
@@ -219,51 +313,8 @@ def main(opts: ScriptOptions):
     print("Loading tag list...")
     labels: LabelData = load_labels_hf(repo_id=repo_id)
 
-    print("Loading image and preprocessing...")
-    # get image
-    img_input: Image.Image = Image.open(image_path)
-    # ensure image is RGB
-    img_input = pil_ensure_rgb(img_input)
-    # pad to square with white background
-    img_input = pil_pad_square(img_input)
-    img_input = pil_resize(img_input, target_size)
-    # convert to numpy array and add batch dimension
-    inputs = np.array(img_input)
-    inputs = np.expand_dims(inputs, axis=0)
-    # NHWC image RGB to BGR
-    inputs = inputs[..., ::-1]
-
-    print("Running inference...")
-    outputs = model.predict(inputs)
-
-    print("Processing results...")
-    caption, taglist, ratings, character, general = get_tags(
-        probs=outputs,
-        labels=labels,
-        gen_threshold=opts.gen_threshold,
-        char_threshold=opts.char_threshold,
-    )
-
-    print("--------")
-    print(f"Caption: {caption}")
-    print("--------")
-    print(f"Tags: {taglist}")
-
-    print("--------")
-    print("Ratings:")
-    for k, v in ratings.items():
-        print(f"  {k}: {v:.3f}")
-
-    print("--------")
-    print(f"Character tags (threshold={opts.char_threshold}):")
-    for k, v in character.items():
-        print(f"  {k}: {v:.3f}")
-
-    print("--------")
-    print(f"General tags (threshold={opts.gen_threshold}):")
-    for k, v in general.items():
-        print(f"  {k}: {v:.3f}")
-
+    process_directory(image_dir, labels, model, target_size, opts, recursive)
+    
     print("Done!")
 
 
