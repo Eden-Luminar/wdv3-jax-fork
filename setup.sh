@@ -24,8 +24,8 @@ python -m pip install -U pip setuptools wheel
 python -m pip install -r requirements.txt
 
 #fixing bug from "python -m pip install -r requirements.txt", missing simple-parsing and einops
-python -m pip install simple-parsing
-python -m pip install einops
+pip install simple-parsing
+pip install einops
 
 echo "Setup complete. Run 'source .venv/bin/activate' to enter the virtual environment."
 exit 0
