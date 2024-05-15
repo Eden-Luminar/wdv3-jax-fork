@@ -256,42 +256,42 @@ def write_file(filename, contents):
         f.close()
 
 def process_directory(image_dir, labels, model, target_size, opts, recursive):
-    i=0
+    
     for filename in os.listdir(image_dir):
         file_path = os.path.join(image_dir, filename)
-        
-        if os.path.isdir(file_path) and recursive:
-            process_directory(file_path, labels, model, target_size, opts, recursive)
+        if (os.path.isdir(file_path) and recursive):
+          process_directory(file_path, labels, model, target_size, opts, recursive)
         elif filename.endswith((".png", ".jpg", ".jpeg", ".webp", ".bmp")):
-            i=i+1
-            # get image
-            img_input: Image.Image = Image.open(file_path)
-            # ensure image is RGB
-            img_input = pil_ensure_rgb(img_input)
-            # pad to square with white background
-            img_input = pil_pad_square(img_input)
-            img_input = pil_resize(img_input, target_size)
-            # convert to numpy array and add batch dimension
-            inputs = np.array(img_input)
-            inputs = np.expand_dims(inputs, axis=0)
-            # NHWC image RGB to BGR
-            inputs = inputs[..., ::-1]
+          
+          
+          # get image
+          img_input: Image.Image = Image.open(file_path)
+          # ensure image is RGB
+          img_input = pil_ensure_rgb(img_input)
+          # pad to square with white background
+          img_input = pil_pad_square(img_input)
+          img_input = pil_resize(img_input, target_size)
+          # convert to numpy array and add batch dimension
+          inputs = np.array(img_input)
+          inputs = np.expand_dims(inputs, axis=0)
+          # NHWC image RGB to BGR
+          inputs = inputs[..., ::-1]
 
             
-            #print("Running inference...")
-            outputs = model.predict(inputs)
+          #print("Running inference...")
+          outputs = model.predict(inputs)
 
-            #print("Processing results...")
-            taglist = get_caption(
-            probs=outputs,
-            labels=labels,
-            gen_threshold=opts.gen_threshold,
-            char_threshold=opts.char_threshold,
+          #print("Processing results...")
+          taglist = get_caption(
+          probs=outputs,
+          labels=labels,
+          gen_threshold=opts.gen_threshold,
+          char_threshold=opts.char_threshold,
             )
-            print(f"Caption of image {i}: {file_path} :")
-            print(f"Caption of image {i}: {filename}: {taglist}")
-            write_file(file_path.split(".")[0] + ".txt", taglist)
-            print(f"-------- end of image {i} --------")
+          print(f"Caption of image : {file_path} :")
+          print(f"Caption of image : {filename}: {taglist}")
+          write_file(file_path.split(".")[0] + ".txt", taglist)
+          print(f"-------- end of image --------")
             
 
 @dataclass
@@ -300,9 +300,9 @@ class ScriptOptions:
     model: str = field(default="vit")
     gen_threshold: float = field(default=0.35)
     char_threshold: float = field(default=0.75)
+    recursive: bool =  field(default=False)
 
-
-def main(opts: ScriptOptions, recursive: bool=False):
+def main(opts: ScriptOptions):
     repo_id = MODEL_REPO_MAP.get(opts.model)
     image_dirs = Path(opts.image_dir).resolve()
     if not image_dirs.is_dir():
@@ -313,8 +313,9 @@ def main(opts: ScriptOptions, recursive: bool=False):
 
     print("Loading tag list...")
     labels: LabelData = load_labels_hf(repo_id=repo_id)
-
-    process_directory(image_dirs, labels, model, target_size, opts, recursive)
+    
+    print(f"Image Directory: {image_dirs}, Model: {repo_id}, General Threshold: {opts.gen_threshold}, Character Threshold: {opts.char_threshold}, Recursive: {opts.recursive}")
+    process_directory(image_dirs, labels, model, target_size, opts, opts.recursive)
     
     print("Done!")
 
